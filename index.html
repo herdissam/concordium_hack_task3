@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>Counter</title>
+        <meta name="description">
+        <meta name="view-port" content="width=device-width, initial-scale=1">
+    
+        <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" type="text/css">
+    
+        <script src="/sdk.js"></script>
+        <script src="/helpers.js"></script>
+        <script>
+            let client = null;
+            let currentAccountAddress = null;
+
+            var isCheckedWithGlobalVariable = false;
+    
+            // get schema in base64 format by executing:
+            // cargo concordium build --scheme-base64-out
+            let rawModuleScheme = '//8DAQAAAAgAAABjb3VudGVyMgADAAAACQAAAGRlY3JlbWVudAMVAQAAABAAAABQYXJzZVBhcmFtc0Vycm9yAgkAAABpbmNyZW1lbnQDFQEAAAAQAAAAUGFyc2VQYXJhbXNFcnJvcgIEAAAAdmlldwEUAAEAAAAHAAAAY291bnRlcgQA'
+    
+            // get modul reference by executing:
+            // ./concordium-client module deploy ./voting_contract.wasm.v1 --sender Herdis --grpc-port 100
+            const moduleReference = new concordiumSDK.ModuleReference('f8dff160c079fd761b31c41bfc2422b2f8adfdbf310480931159d73dd804c397')
+    
+    
+            function connect() {
+                client.connect().then(accountAddress => {
+                    currentAccountAddress = accountAddress
+                    document.getElementById("accountAddress").innerHTML = accountAddress
+                })
+    
+            }
+    
+            function setUpFunction() {
+                concordiumHelpers.detectConcordiumProvider().then(c => client = c).catch(console.log)
+            }
+    
+
+            function increment() {
+                const contractIndex = document.getElementById('contractIndex').value;
+
+                client
+                    .sendTransaction(
+                        currentAccountAddress,
+                        concordiumSDK.AccountTransactionType.Update,
+                        {
+                            amount: new concordiumSDK.CcdAmount(0n),
+                            contractAddress: {
+                                index: contractIndex,
+                                subindex: 0n,
+                            },
+                            receiveName: 'counter2.increment',
+                            maxContractExecutionEnergy: 3000n,
+                        },
+                        {
+					        param: ""
+				        },
+                        rawModuleScheme,
+                    )
+                    .then((msg) => alert(`Successfully sent vote with transcation hash: "${msg}"`))
+                    .catch(alert);
+            }
+
+            function decrement() {
+                const contractIndex = document.getElementById('contractIndex').value;
+
+                client
+                    .sendTransaction(
+                        currentAccountAddress,
+                        concordiumSDK.AccountTransactionType.Update,
+                        {
+                            amount: new concordiumSDK.CcdAmount(0n),
+                            contractAddress: {
+                                index: contractIndex,
+                                subindex: 0n,
+                            },
+                            receiveName: 'counter2.decrement',
+                            maxContractExecutionEnergy: 3000n,
+                        },
+                        {
+					        param: ""
+				        },
+                        rawModuleScheme,
+                    )
+                    .then((msg) => alert(`Successfully sent vote with transcation hash: "${msg}"`))
+                    .catch(alert);
+            }
+
+            function viewResult() {
+                const contractIndex = document.getElementById('contractIndex').value;
+
+                client.getJsonRpcClient().invokeContract({
+                    contract: { index: BigInt(contractIndex), subindex: BigInt(0) },
+                    method: 'counter2.view',
+                })
+                    .then((viewResult) => {
+                        let returnValue = concordiumSDK.deserializeReceiveReturnValue(
+                            concordiumSDK.toBuffer(viewResult.returnValue, 'hex'),
+                            concordiumSDK.toBuffer(rawModuleScheme, 'base64'),
+                            "counter2",
+                            "view",
+                            concordiumSDK.SchemaVersion.V2
+                        );
+                        document.getElementById('counterValue').innerText = returnValue.counter;
+                    })
+                    .catch(alert);
+		    }
+
+            // send transcation to blockchain
+            function InitContract() {
+                //get value from input field
+                // let description = document.getElementById("setupElectionDescription").value
+                //  let param = 1
+                
+
+                // console.log(description)
+
+                // if (description) {
+                //     flag = false
+                //     console.log(flag)
+                // }
+
+                // console.log(flag)
+    
+                // send transaction
+    
+                client.sendTransaction(
+                    currentAccountAddress,
+                    concordiumSDK.AccountTransactionType.InitContract,
+                    // general trx value
+                    {
+                        amount: new concordiumSDK.CcdAmount(0n),
+                        moduleRef: moduleReference,
+                        initName: "counter2",
+                        maxContractExecutionEnergy: 3000n,
+                    },
+                    // input value
+                    {
+                        param: ""
+                    },
+                    rawModuleScheme
+    
+                ).then(txHash => console.log(console.log)).catch(console.log)
+            }
+    
+    
+            // when page is loaded
+            addEventListener("DOMContentLoaded", (_) => setUpFunction()).catch(console.log)
+        </script>
+    </head>
+    
+    <body>
+        <article>
+            <!--connect to the browser, show the account-->
+            <section>
+                <p>connected account:</p>
+                <em id="accountAddress">None</em><br />
+                <br>
+                <button onclick="connect()">
+                    Connect to browser wallet
+                </button>
+
+                
+
+            </section>
+            <!--initialize smart contract-->
+            <section>
+                <button onclick="InitContract()">Init Contract</button>  
+            </section>
+            <br/>
+            <section>
+                <label>Contract Index:<br /><input type="number" min="0" value="3215" id="contractIndex"></label>
+                <br/>
+                <button onclick="viewResult()">Counter Value</button>
+                <h2>
+                    <span id="counterValue">None</span>
+                </h2>
+            </section>
+            <br />
+            <!--ivote -> writing to blockchain-->
+            <section>
+                <!-- <h2>Counter</h2> -->
+                <!-- <label>Contract Index:<br /><input type="number" min="0" value="3215" id="votingContractIndex"></label> -->
+                <!-- <label>increse by:<br /><input type="number" id="votingOption"></label> -->
+                <button onclick="increment()">Increment</button>
+
+                <button onclick="decrement()">Decrement</button>
+            </section>
+
+            <br />
+            <!--display the result -> read the blockchain-->
+            <section>
+                <button onclick="viewResult()">Counter Value</button>
+            </section>
+        </article>
+    </body>
+</html>
